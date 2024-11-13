@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function autoReload() {
         setTimeout(function(){
             if($PERMISSAO_RELOAD) location.reload();
-        }, 60000); // 60 segundos
+        }, 120000); // 2 * 60 segundos
     }
 
     // Função para obter parâmetros da URL
@@ -36,6 +36,50 @@ document.addEventListener('DOMContentLoaded', function() {
         else if (profitPercentage > 0) color = 'linear-gradient(135deg, #33ff33, #336633)';
         else color = 'linear-gradient(135deg, #ff9966, #cc1133)';
         return color;
+    }
+
+    function criar_div_crypto(cryptoContainer, data, crypto, profitPercentage, currentPrice, purchasePrice, montante, profitPercentage, liquidprice, corretora, alavancagem ){
+        try{
+            const cryptoElement = document.createElement('div');
+            cryptoElement.className = 'crypto';
+            cryptoElement.style.background = getBackgroundColor(profitPercentage);
+            cryptoElement.innerHTML = `
+                <a href="https://www.coingecko.com/en/coins/${crypto}#panel" target="_blank">
+                    <h3 class="me-4" title="${data[crypto]['symbol']} - ${data[crypto]['id']}">${data[crypto]['name']}</h3>
+                    <img src="${data[crypto]['image']}" alt="${crypto} icon" class="img-crypto">
+                    <h5>${currentPrice}</h5>
+                    <hr class="mb-0">
+                    <span title="Variação de preço em 24h">Preço 24h: ${data[crypto]['price_change_percentage_24h']}%</span>
+                    ${purchasePrice > 0 ? '<p>Preço Médio: '+purchasePrice+'</p>' : ''}
+                    ${montante > 0 ? '<p>Montante: '+montante+'</p>' : ''}
+                    ${!isNaN(profitPercentage) && isFinite(profitPercentage) ? '<p>Lucro: <b style="font-size: 14px">'+profitPercentage+'%</b></p>' : ''}
+                    ${liquidprice ? `<p title="Preço Estimado para liquidação">Liquidação: ${liquidprice}</p>` : ''}
+                </a>
+                ${corretora && corretora['image'] ? `<a href="${corretora['url']}" target="_blank"><img src="${corretora['image']}" alt="${corretora['name']}" class="img-corretora"></a>` : ''}
+                ${alavancagem && alavancagem > 1 ? `<div class="crypto_alavancagem" title="Mercado Futuros, Alavancagem de ${alavancagem}x">${alavancagem}x</div>` : ''}
+            `;
+            cryptoContainer.appendChild(cryptoElement);
+        } catch (error) {
+            console.error('Erro ao criar card crypto: '+String(crypto), error);
+        }
+    }
+
+    function ordenarArray(array, keys, orders) {
+        return array.sort((a, b) => {
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                const order = orders[i];
+                
+                // Verificar se os valores são strings numéricas e convertê-los para float
+                const valA = typeof a[key] === 'string' && !isNaN(parseFloat(a[key])) ? parseFloat(a[key]) : a[key];
+                const valB = typeof b[key] === 'string' && !isNaN(parseFloat(b[key])) ? parseFloat(b[key]) : b[key];
+
+                // Comparar valores transformados
+                if (valA < valB) return order === 'asc' ? -1 : 1;
+                if (valA > valB) return order === 'asc' ? 1 : -1;
+            }
+            return 0;
+        });
     }
 
     const fetchCryptoData = async () => {
@@ -126,35 +170,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
             $('#titulo-container').html(`Cotações de Criptomoedas (${currency.toUpperCase()})`);
 
-            cryptos.forEach((crypto, index) => {
-                const currentPrice = data[crypto]['current_price'];
-                const purchasePrice = purchasePrices[index];
+            $cryptos_list = [];
+            Array.from(cryptos).forEach((crypto, index) => {
+                $c = { 
+                    'crypto' : crypto, 
+                    'currentPrice' : data[crypto]['current_price'], 
+                    'purchasePrice' : purchasePrices[index], 
+                    'montante' : montantes[index], 
+                    'profitPercentage' : calculateProfitPercentage(data[crypto]['current_price'], purchasePrices[index]), 
+                    'corretora' : corretoras_data[corretoras[index]], 
+                    'liquidprice' : liquid_prices[index], 
+                    'alavancagem' : alavancagens[index],
+                    'price_change_percentage_24h' : data[crypto]['price_change_percentage_24h']
+                }
+                $cryptos_list.push($c);
+            });
+
+            const sortedData = ordenarArray($cryptos_list, ['alavancagem', 'price_change_percentage_24h', 'profitPercentage', 'corretora', 'crypto'], ['desc', 'desc', 'desc', 'asc', 'asc']);
+
+            sortedData.forEach(c => {
+                /*const currentPrice = data[crypto]['current_price'];
+                //const purchasePrice = purchasePrices[index];
                 const montante = montantes[index];
                 const profitPercentage = calculateProfitPercentage(currentPrice, purchasePrice);
                 const corretora = corretoras_data[corretoras[index]];
                 const liquidprice = liquid_prices[index];
                 const alavancagem = alavancagens[index];
-                //const profitValue = ((currentPrice - purchasePrice) * montante).toFixed(2);
-
-                const cryptoElement = document.createElement('div');
-                cryptoElement.className = 'crypto';
-                cryptoElement.style.background = getBackgroundColor(profitPercentage);
-                cryptoElement.innerHTML = `
-                    <a href="https://www.coingecko.com/en/coins/${crypto}#panel" target="_blank">
-                        <h3 class="me-4" title="${data[crypto]['symbol']} - ${data[crypto]['id']}">${data[crypto]['name']}</h3>
-                        <img src="${data[crypto]['image']}" alt="${crypto} icon" class="img-crypto">
-                        <h5>${currentPrice}</h5>
-                        <hr class="mb-0">
-                        <span title="Variação de preço em 24h">Preço 24h: ${data[crypto]['price_change_percentage_24h']}%</span>
-                        ${purchasePrice > 0 ? '<p>Preço Médio: '+purchasePrice+'</p>' : ''}
-                        ${montante > 0 ? '<p>Montante: '+montante+'</p>' : ''}
-                        ${!isNaN(profitPercentage) && isFinite(profitPercentage) ? '<p>Lucro: <b style="font-size: 14px">'+profitPercentage+'%</b></p>' : ''}
-                        ${liquidprice ? `<p title="Preço Estimado para liquidação">Liquidação: ${liquidprice}</p>` : ''}
-                    </a>
-                    ${corretora && corretora['image'] ? `<a href="${corretora['url']}" target="_blank"><img src="${corretora['image']}" alt="${corretora['name']}" class="img-corretora"></a>` : ''}
-                    ${alavancagem && alavancagem > 1 ? `<div class="crypto_alavancagem" title="Mercado Futuros, Alavancagem de ${alavancagem}x">${alavancagem}x</div>` : ''}
-                `;
-                cryptoContainer.appendChild(cryptoElement);
+                //const profitValue = ((currentPrice - purchasePrice) * montante).toFixed(2);*/
+                criar_div_crypto(cryptoContainer, data, c['crypto'], c['profitPercentage'], c['currentPrice'], c['purchasePrice'], c['montante'], c['profitPercentage'], c['liquidprice'], c['corretora'], c['alavancagem'] );
             });
 
         } catch (error) {
