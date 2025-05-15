@@ -4,6 +4,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const cryptoContainer = document.getElementById('crypto-container');
 
+    //função preencher grafico
+    function preencher_grafico(spot, futuros, dolar){
+
+        console.log(spot, futuros, dolar);
+
+        // Atualiza os textos dos cards
+        document.getElementById('valor_spot').textContent = `$${spot.toLocaleString()}`;
+        document.getElementById('valor_futuros').textContent = `$${futuros.toLocaleString()}`;
+        document.getElementById('cotacao_dolar').textContent = `R$${dolar.toLocaleString()}`;
+    
+        // Gráfico de pizza
+        const ctx = document.getElementById('graficoPizza').getContext('2d');
+        new Chart(ctx, {
+          type: 'pie',
+          data: {
+            //labels: ['Alavancagem 1', 'Alavancagem > 1'],
+            datasets: [{
+              data: [spot, futuros],
+              backgroundColor: ['#10B981', '#3B82F6'],
+              borderColor: '#fff',
+              borderWidth: 2
+            }]
+          },
+          options: {
+            plugins: {
+              legend: {
+                position: 'bottom'
+              },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => `${ctx.label}: $${ctx.parsed.toLocaleString()}`
+                }
+              }
+            }
+          }
+        });
+    }
+
     // Função para recarregar a página a cada 30 segundos (30000 milissegundos)
     function autoReload() {
         setTimeout(function(){
@@ -131,6 +169,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }, {});
             console.log(corretoras_data);
 
+            //obter cotação dolar
+            const cd_metadataResponse = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=brl`);
+            const cd_metadata = await cd_metadataResponse.json();
+            const cotacao_dolar = cd_metadata.tether.brl;
+            console.log('cotação dolar', cotacao_dolar);
+
             // Fetch metadata for icons
             const metadataResponse = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}&ids=${cryptos.join(',')}`);
             const metadata = await metadataResponse.json();
@@ -172,22 +216,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
             $cryptos_list = [];
             Array.from(cryptos).forEach((crypto, index) => {
+                $porcentagem = calculateProfitPercentage(data[crypto]['current_price'], purchasePrices[index]);
                 $c = { 
                     'crypto' : crypto, 
                     'currentPrice' : data[crypto]['current_price'], 
                     'purchasePrice' : purchasePrices[index], 
                     'montante' : montantes[index], 
-                    'profitPercentage' : calculateProfitPercentage(data[crypto]['current_price'], purchasePrices[index]), 
+                    'profitPercentage' : $porcentagem, 
                     'corretora' : corretoras_data[corretoras[index]], 
                     'liquidprice' : liquid_prices[index], 
                     'alavancagem' : alavancagens[index],
-                    'price_change_percentage_24h' : data[crypto]['price_change_percentage_24h']
+                    'price_change_percentage_24h' : data[crypto]['price_change_percentage_24h'],
+                    'lucro_valor' : montantes[index] * $porcentagem / 100
                 }
                 $cryptos_list.push($c);
             });
 
             const sortedData = ordenarArray($cryptos_list, ['alavancagem', 'price_change_percentage_24h', 'profitPercentage', 'corretora', 'crypto'], ['desc', 'desc', 'desc', 'asc', 'asc']);
 
+            $dados_graficos = {
+                "spot" : {
+                    "acumulado_lucro_valor" : 0.0, 
+                    "qtd_ativos" : 0
+                }, 
+                "futuros" : {
+                    "acumulado_lucro_valor" : 0.0, 
+                    "qtd_ativos" : 0
+                }
+            };
+            
             sortedData.forEach(c => {
                 /*const currentPrice = data[crypto]['current_price'];
                 //const purchasePrice = purchasePrices[index];
@@ -197,12 +254,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 const liquidprice = liquid_prices[index];
                 const alavancagem = alavancagens[index];
                 //const profitValue = ((currentPrice - purchasePrice) * montante).toFixed(2);*/
+
+                //dados graficos
+                if(c['alavancagem'] > 0){
+                    $k = 'spot';
+                    if(c['alavancagem'] > 1) $k = 'futuros';
+                    $dados_graficos[$k]["acumulado_lucro_valor"] += c['lucro_valor'];
+                    $dados_graficos[$k]["qtd_ativos"]++;
+                }
+
                 criar_div_crypto(cryptoContainer, data, c['crypto'], c['profitPercentage'], c['currentPrice'], c['purchasePrice'], c['montante'], c['profitPercentage'], c['liquidprice'], c['corretora'], c['alavancagem'] );
             });
 
+            console.log('dados_graficos', $dados_graficos);
+            preencher_grafico($dados_graficos.spot.acumulado_lucro_valor, $dados_graficos.futuros.acumulado_lucro_valor, cotacao_dolar);
+
         } catch (error) {
             console.error('Erro ao buscar dados da API do CoinGecko', error);
-            cryptoContainer.innerHTML = '<p>Erro ao carregar dados,talvez muitas requesições ou parâmetros errados, espere e tente novamente</p>';
+            //cryptoContainer.innerHTML = '<p>Erro ao carregar dados,talvez muitas requesições ou parâmetros errados, espere e tente novamente</p>';
         }
     };
 

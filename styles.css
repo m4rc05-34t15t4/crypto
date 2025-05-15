@@ -36,6 +36,19 @@ body {
     border: solid 1px #888;
 }
 
+.crypto_garfico {
+    border-radius: 30px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    background: linear-gradient(135deg, #f5debb, #9f9ffd);
+    transition: background 0.5s;
+    border: solid 1px #919090;
+}
+
+.div-garfico-numero{
+    max-width: 200px;
+}
+
 .crypto h3 {
     margin: 0;
     font-size: 1.5em;
