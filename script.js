@@ -5,14 +5,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const cryptoContainer = document.getElementById('crypto-container');
 
     //função preencher grafico
-    function preencher_grafico(spot, futuros, dolar){
+    function preencher_grafico(spot, futuros, dolar, btc){
 
-        console.log(spot, futuros, dolar);
+        //console.log(spot, futuros, dolar);
 
         // Atualiza os textos dos cards
-        document.getElementById('valor_spot').textContent = `$${spot.toLocaleString()}`;
-        document.getElementById('valor_futuros').textContent = `$${futuros.toLocaleString()}`;
-        document.getElementById('cotacao_dolar').textContent = `R$${dolar.toLocaleString()}`;
+        document.getElementById('valor_spot').textContent = `$ ${spot.toLocaleString()}`;
+        document.getElementById('valor_futuros').textContent = `$ ${futuros.toLocaleString()}`;
+        document.getElementById('cotacao_dolar').textContent = `R$ ${dolar.toLocaleString()}`;
+        $total_usd = spot + futuros;
+        document.getElementById('valor_total_usd').textContent = `$ ${$total_usd.toLocaleString()}`;
+        document.getElementById('valor_total_btc').textContent = `₿ ${($total_usd / btc).toLocaleString()}`;
+        document.getElementById('valor_total_brl').textContent = `R$ ${($total_usd * dolar).toLocaleString()}`;
     
         // Gráfico de pizza
         const ctx = document.getElementById('graficoPizza').getContext('2d');
@@ -262,12 +266,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     $dados_graficos[$k]["acumulado_lucro_valor"] += c['lucro_valor'];
                     $dados_graficos[$k]["qtd_ativos"]++;
                 }
+                if(c['crypto'] == 'bitcoin') $dados_graficos['btc'] = c['currentPrice'];
 
                 criar_div_crypto(cryptoContainer, data, c['crypto'], c['profitPercentage'], c['currentPrice'], c['purchasePrice'], c['montante'], c['profitPercentage'], c['liquidprice'], c['corretora'], c['alavancagem'] );
             });
 
+            //RETORNA O VALOR DE btc CASO NÃO TENHA NA LISTA
+            if($dados_graficos['btc'] != undefined){
+                const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd`);
+                const btc = await response.json();
+                $dados_graficos['btc'] = btc['bitcoin']['usd'];
+            }
+
             console.log('dados_graficos', $dados_graficos);
-            preencher_grafico($dados_graficos.spot.acumulado_lucro_valor, $dados_graficos.futuros.acumulado_lucro_valor, cotacao_dolar);
+            preencher_grafico($dados_graficos.spot.acumulado_lucro_valor, $dados_graficos.futuros.acumulado_lucro_valor, cotacao_dolar, $dados_graficos.btc);
 
         } catch (error) {
             console.error('Erro ao buscar dados da API do CoinGecko', error);
